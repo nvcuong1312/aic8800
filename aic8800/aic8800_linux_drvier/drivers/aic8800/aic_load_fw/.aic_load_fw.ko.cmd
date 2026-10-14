@@ -1,0 +1,1 @@
+savedcmd_aic_load_fw/aic_load_fw.ko := arm-linux-gnueabihf-ld -r -EL -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T /usr/src/linux-headers-6.18.50+rpt-rpi-v7/arch/arm/module.lds -o aic_load_fw/aic_load_fw.ko aic_load_fw/aic_load_fw.o aic_load_fw/aic_load_fw.mod.o .module-common.o
