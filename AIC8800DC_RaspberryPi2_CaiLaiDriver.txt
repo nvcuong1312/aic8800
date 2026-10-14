@@ -1,0 +1,110 @@
+HUONG DAN CAI LAI DRIVER MERCUSYS MA14N (AIC8800DC)
+Raspberry Pi 2 Model B v1.1 - Raspberry Pi OS (32-bit)
+========================================================
+
+THONG TIN BAN BUILD DA KIEM TRA
+- Kernel da build: 6.18.50+rpt-rpi-v7
+- Kien truc: ARM 32-bit (armv7l)
+- USB ID: 2c4e:0114 (AIC8800DC)
+- Module: aic_load_fw.ko va aic8800_fdrv.ko
+- Firmware: thu muc aic8800DC
+
+LUU Y QUAN TRONG
+- Hai file .ko khong du de cai lai: can ca firmware.
+- Chi tai su dung .ko neu kernel/ABI tuong thich. Kiem tra 'uname -r' va 'modinfo -F vermagic'.
+- Neu kernel moi khac, hay build lai tu ma nguon da patch; khong ep nap module sai phien ban.
+- /tmp co the bi xoa khi khoi dong lai. Nen luu bo driver vao USB, /home, hoac noi sao luu khac.
+
+A. SAO LUU TREN MAY DANG HOAT DONG
+---------------------------------
+mkdir -p ~/aic8800-backup/firmware
+cp ~/mercusys/aic8800/aic8800_linux_drvier/drivers/aic8800/aic_load_fw/aic_load_fw.ko ~/aic8800-backup/
+cp ~/mercusys/aic8800/aic8800_linux_drvier/drivers/aic8800/aic8800_fdrv/aic8800_fdrv.ko ~/aic8800-backup/
+cp -a /lib/firmware/aic8800DC ~/aic8800-backup/firmware/
+(cd ~/aic8800-backup && sha256sum aic_load_fw.ko aic8800_fdrv.ko > SHA256SUMS)
+(cd ~ && tar -czf aic8800-backup.tar.gz aic8800-backup)
+
+Nen sao luu them source da patch:
+cd ~/mercusys/aic8800
+tar -czf ~/aic8800-source-patched.tar.gz aic8800_linux_drvier/
+
+B. CHUAN BI SAU KHI CAI LAI OS
+-----------------------------
+1) Kiem tra kernel:
+uname -r
+uname -m
+
+2) Copy thu muc aic8800-backup vao /tmp/driver (hoac giai nen file backup):
+mkdir -p /tmp/driver
+tar -xzf ~/aic8800-backup.tar.gz -C /tmp/driver --strip-components=1
+
+Cau truc mong doi:
+/tmp/driver/aic_load_fw.ko
+/tmp/driver/aic8800_fdrv.ko
+/tmp/driver/firmware/aic8800DC/
+
+3) Kiem tra file va vermagic:
+ls -lh /tmp/driver/*.ko
+modinfo -F vermagic /tmp/driver/aic_load_fw.ko
+modinfo -F vermagic /tmp/driver/aic8800_fdrv.ko
+
+Neu kernel khac hoac module khong tuong thich: DUNG LAI, build lai tu source.
+
+C. CAI DAT DRIVER VA FIRMWARE
+----------------------------
+sudo install -d /lib/modules/$(uname -r)/extra
+sudo install -m 644 /tmp/driver/aic_load_fw.ko /lib/modules/$(uname -r)/extra/
+sudo install -m 644 /tmp/driver/aic8800_fdrv.ko /lib/modules/$(uname -r)/extra/
+sudo cp -a /tmp/driver/firmware/aic8800DC /lib/firmware/
+sudo depmod -a
+
+D. NAP MODULE VA KIEM TRA
+------------------------
+sudo modprobe aic_load_fw
+sudo modprobe aic8800_fdrv
+lsmod | grep aic
+lsusb
+iw dev
+
+Neu iw dev thay wlan0, tiep tuc:
+sudo rfkill unblock wifi
+sudo nmcli radio wifi on
+sudo ip link set wlan0 up
+nmcli device status
+nmcli device wifi list ifname wlan0 --rescan yes
+
+Ket noi Wi-Fi (thay ten/mat khau):
+sudo nmcli device wifi connect 'TEN_WIFI' password 'MAT_KHAU_WIFI' ifname wlan0
+ip -4 addr show wlan0
+ping -I wlan0 -c 4 1.1.1.1
+
+E. TU NAP KHI KHOI DONG
+----------------------
+printf 'aic_load_fw\naic8800_fdrv\n' | sudo tee /etc/modules-load.d/aic8800.conf
+cat /etc/modules-load.d/aic8800.conf
+
+F. XU LY SU CO
+--------------
+Neu modprobe loi:
+modinfo -n aic_load_fw
+modinfo -n aic8800_fdrv
+sudo dmesg | grep -iE 'aic|firmware|usb|wlan|unknown symbol|invalid module' | tail -100
+
+Neu wlan0 la 'unavailable':
+rfkill list
+nmcli radio all
+ip link show wlan0
+sudo rfkill unblock wifi
+sudo nmcli radio wifi on
+sudo ip link set wlan0 up
+nmcli device status
+
+Neu van khong quet duoc:
+sudo iw dev wlan0 scan | grep SSID | head -20
+sudo dmesg | tail -80
+
+GHI CHU
+-------
+- Sau khi cap nhat kernel, module .ko co the khong con hoat dong.
+- Driver da duoc patch de build tren kernel 6.18.50+rpt-rpi-v7; nen giu source patch de build lai.
+- Hai module nap thanh cong va wlan0 da xuat hien trong lan kiem tra truoc; chua xac nhan ket noi Internet.
